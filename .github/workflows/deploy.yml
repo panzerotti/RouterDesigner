@@ -2,7 +2,9 @@ name: Deploy Blazor WASM to GitHub Pages
 
 on:
   push:
-    branches: [ "main" ]
+    branches:
+      - main
+  workflow_dispatch:
 
 permissions:
   contents: read
@@ -26,8 +28,9 @@ jobs:
         with:
           dotnet-version: '8.0.x'
 
-      - name: Publish
-        run: dotnet publish RouterDesigner.csproj -c Release -o publish
+        - name: Publish
+    run: dotnet publish RouterDesigner/RouterDesigner.csproj -c Release -o publish
+
 
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3
