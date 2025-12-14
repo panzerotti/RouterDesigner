@@ -1,0 +1,142 @@
+﻿@page "/"
+
+@using System.Text.Json
+@using RouterDesigner.Models
+@inject IJSRuntime JS
+
+<h3>Box Interior Designer</h3>
+
+<div class="designer-layout">
+    <div class="left-panel">
+        <h4>Box</h4>
+
+        <div class="form-row">
+            <label>Width (mm):</label>
+            <input type="number" @bind="Design.InnerWidthMm" @bind:after="OnDesignChanged" />
+        </div>
+
+        <div class="form-row">
+            <label>Height (mm):</label>
+            <input type="number" @bind="Design.InnerHeightMm" @bind:after="OnDesignChanged" />
+        </div>
+
+        <button @onclick="AddRect">Add rectangle</button>
+
+        <h4 style="margin-top:1rem;">Selected shape</h4>
+
+        @if (SelectedRect is not null)
+        {
+            <div class="form-row">
+                <label>X (mm):</label>
+                <input type="number" @bind="SelectedRect.X" @bind:after="OnDesignChanged" />
+            </div>
+
+            <div class="form-row">
+                <label>Y (mm):</label>
+                <input type="number" @bind="SelectedRect.Y" @bind:after="OnDesignChanged" />
+            </div>
+
+            <div class="form-row">
+                <label>Width (mm):</label>
+                <input type="number" @bind="SelectedRect.WidthMm" @bind:after="OnDesignChanged" />
+            </div>
+
+            <div class="form-row">
+                <label>Height (mm):</label>
+                <input type="number" @bind="SelectedRect.HeightMm" @bind:after="OnDesignChanged" />
+            </div>
+
+            <div class="form-row">
+                <label>Rotation (deg):</label>
+                <input type="number" @bind="SelectedRect.RotationDeg" @bind:after="OnDesignChanged" />
+            </div>
+
+            <button @onclick="DeleteSelected">Delete</button>
+        }
+        else
+        {
+            <p>No shape selected.</p>
+        }
+
+        <h4 style="margin-top:1rem;">Debug</h4>
+        <button @onclick="SaveDesign">Print JSON to Console</button>
+    </div>
+
+    <div class="canvas-panel">
+        <canvas id="designCanvas" width="800" height="600"></canvas>
+    </div>
+</div>
+
+@code {
+    private BoxDesign Design = new();
+    private RectShape? SelectedRect;
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            await JS.InvokeVoidAsync("boxDesigner.init", "designCanvas");
+        }
+
+        await PushDesignToCanvas();
+    }
+
+    private async Task PushDesignToCanvas()
+    {
+        var dto = new
+        {
+            innerWidthMm = Design.InnerWidthMm,
+            innerHeightMm = Design.InnerHeightMm,
+            shapes = Design.Shapes.Select(s => new
+            {
+                id = s.Id,
+                type = s.Type,
+                x = s.X,
+                y = s.Y,
+                rotationDeg = s.RotationDeg,
+                widthMm = (s as RectShape)?.WidthMm ?? 0,
+                heightMm = (s as RectShape)?.HeightMm ?? 0
+            })
+        };
+
+        var json = JsonSerializer.Serialize(dto);
+        await JS.InvokeVoidAsync("boxDesigner.setDesign", json);
+    }
+
+    private async Task OnDesignChanged()
+    {
+        await PushDesignToCanvas();
+        StateHasChanged();
+    }
+
+    private async Task AddRect()
+    {
+        var rect = new RectShape
+            {
+                Type = "rect",
+                X = Design.InnerWidthMm / 2,
+                Y = Design.InnerHeightMm / 2,
+                WidthMm = 40,
+                HeightMm = 20
+            };
+
+        Design.Shapes.Add(rect);
+        SelectedRect = rect;
+        await OnDesignChanged();
+    }
+
+    private async Task DeleteSelected()
+    {
+        if (SelectedRect is null) return;
+
+        Design.Shapes.Remove(SelectedRect);
+        SelectedRect = null;
+        await OnDesignChanged();
+    }
+
+    private void SaveDesign()
+    {
+        var json = JsonSerializer.Serialize(Design);
+        Console.WriteLine(json);
+    }
+}
